@@ -1,0 +1,32 @@
+# Build output
+.gradle/
+build/
+bin/
+out/
+
+# Temp folders (decompiled classes for exploration)
+temp_decompile/
+temp/
+
+# Extracted class files from JAR exploration (only at project root)
+/fr/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+
+# Compiled Java classes
+*.class
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local-only files
+task.html
+class-teacher's-talk.md
+.claude/

@@ -1,0 +1,52 @@
+plugins {
+  id 'java'
+  id 'application'
+}
+
+defaultTasks 'build'
+
+repositories {
+  mavenCentral()
+
+  flatDir {
+    dirs 'lib'
+  }
+}
+
+dependencies {
+  implementation('org.ini4j:ini4j:0.5.4')
+  implementation files('lib/maqit-simulator-1.0.jar')
+}
+
+tasks.named('run') {
+  classpath = sourceSets.main.runtimeClasspath
+  mainClass = 'fr.emse.BasicSimulator'
+}
+
+// Task to run warehouse simulation
+tasks.register('warehouse', JavaExec) {
+  classpath = sourceSets.main.runtimeClasspath
+  mainClass = 'fr.emse.warehouse.WarehouseSimulator'
+}
+
+// Task to run reference model
+// Usage: gradle reference [-Pconfig=path/to/config.ini]
+tasks.register('reference', JavaExec) {
+  classpath = sourceSets.main.runtimeClasspath
+  mainClass = 'fr.emse.warehouse.WarehouseSimulator'
+  args = ['reference']
+  if (project.hasProperty('config')) {
+    systemProperty 'warehouse.config', project.property('config')
+  }
+}
+
+// Task to run enhanced model
+// Usage: gradle enhanced [-Pconfig=path/to/config.ini]
+tasks.register('enhanced', JavaExec) {
+  classpath = sourceSets.main.runtimeClasspath
+  mainClass = 'fr.emse.warehouse.WarehouseSimulator'
+  args = ['enhanced']
+  if (project.hasProperty('config')) {
+    systemProperty 'warehouse.config', project.property('config')
+  }
+}
