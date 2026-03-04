@@ -1,0 +1,218 @@
+
+============================================================
+          WAREHOUSE AMR SIMULATION
+============================================================
+
+  Mode: REFERENCE
+  Grid: 15 rows x 20 columns
+
+============================================================
+                 COLOR LEGEND (GUI Window)
+============================================================
+
+  +------------------+------------------------------------------+
+  | COLOR            | MEANING                                  |
+  +------------------+------------------------------------------+
+  | LIME GREEN       | Entry Areas (A1, A2, A3) - pallets spawn |
+  | BRIGHT RED       | Exit Areas (Z1, Z2) - destinations       |
+  | BLUE             | AMR Robot (EMPTY - no pallet)            |
+  | MAGENTA/PINK     | AMR Robot CARRYING a pallet              |
+  | YELLOW/ORANGE    | HUMAN worker (moves randomly!)           |
+  | DARK GRAY        | Static Obstacles/Walls                   |
+  | CYAN             | Intermediate Areas (relay stations)      |
+  | PURPLE           | Charging/Recharge Stations               |
+  +------------------+------------------------------------------+
+
+============================================================
+            TEXT MAP SYMBOLS (Console output)
+============================================================
+
+  +--------+------------------------------------------------+
+  | SYMBOL | MEANING                                        |
+  +--------+------------------------------------------------+
+  | A1-A3  | Entry Areas (pallets arrive here)              |
+  | Z1, Z2 | Exit Areas (delivery destinations)             |
+  | R      | Robot (empty/idle)                             |
+  | R*     | Robot CARRYING a pallet                        |
+  | H      | Human worker (dynamic obstacle)                |
+  | X      | Static Obstacle                                |
+  | I      | Intermediate Area (relay station)              |
+  | C      | Charging Station                               |
+  | .      | Empty cell                                     |
+  +--------+------------------------------------------------+
+
+============================================================
+                   WAREHOUSE LAYOUT
+============================================================
+
+       LEFT SIDE           |         RIGHT SIDE
+   ----------------------- | ------------------------
+   Exit Areas (Z1, Z2)     |   Entry Areas (A1-A3)
+   Delivery Destinations   |   Pallets Spawn Here
+
+   Robots move from RIGHT --> to --> LEFT to deliver
+   Humans move RANDOMLY - they are dynamic obstacles!
+
+============================================================
+
+Placed 5 obstacles (spread apart, away from entry/exit)
+Created 3 human workers (dynamic obstacles)
+
+--- WAREHOUSE POSITIONS ---
+Entry Areas (GREEN - pallets spawn here):
+  A1 at position (2, 18)
+  A2 at position (7, 18)
+  A3 at position (13, 18)
+Exit Areas (ORANGE - delivery destinations):
+  Z1 at position (2, 1)
+  Z2 at position (13, 1)
+Obstacles: 5 placed randomly
+
+Starting REFERENCE simulation...
+Total pallets to deliver: 100
+Watch the GUI window for visual simulation!
+
+Simulation complete at tick 644
+
+============================================================
+         SIMULATION RESULTS - REFERENCE MODEL
+============================================================
+
+  DELIVERY METRICS
+------------------------------------------------------------
+  Total pallets generated      : 100
+  Total pallets delivered       : 100
+  Pallets still pending         : 0
+  Total delivery time (td)      : 2148 ticks   [td = sum of (tc - ts) for each pallet]
+  Average delivery time         : 21.48 ticks per pallet
+  Makespan                      : 644 ticks
+  Throughput                    : 0.1553 pallets/tick
+  Total distance (all AMRs)     : 2180 cells
+
+  PER-PALLET DELIVERY LOG
+------------------------------------------------------------
+  Pallet | Dest | Arrived (ts) | Delivered (tc) | Time (tp = tc - ts)
+  -------+------+--------------+----------------+--------------------
+  3      | Z1   | 10           | 29             | 19 ticks
+  1      | Z2   | 4            | 30             | 26 ticks
+  2      | Z2   | 6            | 32             | 26 ticks
+  4      | Z1   | 17           | 36             | 19 ticks
+  5      | Z1   | 42           | 59             | 17 ticks
+  8      | Z1   | 48           | 63             | 15 ticks
+  6      | Z1   | 46           | 65             | 19 ticks
+  7      | Z1   | 46           | 71             | 25 ticks
+  9      | Z1   | 48           | 76             | 28 ticks
+  10     | Z2   | 61           | 82             | 21 ticks
+  11     | Z2   | 68           | 89             | 21 ticks
+  12     | Z1   | 75           | 100            | 25 ticks
+  13     | Z2   | 76           | 102            | 26 ticks
+  14     | Z1   | 84           | 108            | 24 ticks
+  15     | Z2   | 92           | 109            | 17 ticks
+  16     | Z2   | 101          | 122            | 21 ticks
+  17     | Z2   | 103          | 124            | 21 ticks
+  19     | Z1   | 115          | 136            | 21 ticks
+  18     | Z1   | 113          | 138            | 25 ticks
+  20     | Z1   | 121          | 138            | 17 ticks
+  22     | Z1   | 134          | 153            | 19 ticks
+  21     | Z2   | 132          | 158            | 26 ticks
+  23     | Z2   | 151          | 168            | 17 ticks
+  24     | Z2   | 156          | 182            | 26 ticks
+  26     | Z2   | 159          | 184            | 25 ticks
+  25     | Z1   | 158          | 188            | 30 ticks
+  27     | Z2   | 163          | 189            | 26 ticks
+  28     | Z1   | 172          | 197            | 25 ticks
+  29     | Z1   | 173          | 198            | 25 ticks
+  30     | Z2   | 182          | 199            | 17 ticks
+  31     | Z2   | 194          | 215            | 21 ticks
+  32     | Z1   | 204          | 223            | 19 ticks
+  33     | Z2   | 207          | 224            | 17 ticks
+  34     | Z1   | 211          | 228            | 17 ticks
+  35     | Z2   | 219          | 236            | 17 ticks
+  37     | Z2   | 222          | 241            | 19 ticks
+  36     | Z1   | 222          | 247            | 25 ticks
+  38     | Z2   | 247          | 263            | 16 ticks
+  39     | Z1   | 251          | 270            | 19 ticks
+  40     | Z2   | 258          | 275            | 17 ticks
+  41     | Z2   | 263          | 284            | 21 ticks
+  42     | Z2   | 270          | 293            | 23 ticks
+  43     | Z1   | 279          | 298            | 19 ticks
+  44     | Z1   | 280          | 299            | 19 ticks
+  45     | Z1   | 291          | 306            | 15 ticks
+  46     | Z1   | 292          | 317            | 25 ticks
+  49     | Z2   | 304          | 321            | 17 ticks
+  47     | Z1   | 299          | 327            | 28 ticks
+  48     | Z2   | 300          | 330            | 30 ticks
+  50     | Z1   | 305          | 335            | 30 ticks
+  52     | Z1   | 321          | 336            | 15 ticks
+  53     | Z1   | 322          | 339            | 17 ticks
+  51     | Z1   | 319          | 344            | 25 ticks
+  54     | Z1   | 337          | 354            | 17 ticks
+  55     | Z1   | 341          | 366            | 25 ticks
+  56     | Z1   | 342          | 367            | 25 ticks
+  59     | Z1   | 362          | 377            | 15 ticks
+  61     | Z2   | 363          | 380            | 17 ticks
+  58     | Z2   | 359          | 382            | 23 ticks
+  60     | Z1   | 363          | 382            | 19 ticks
+  57     | Z2   | 358          | 384            | 26 ticks
+  63     | Z1   | 368          | 387            | 19 ticks
+  62     | Z1   | 366          | 391            | 25 ticks
+  64     | Z1   | 374          | 399            | 25 ticks
+  67     | Z1   | 386          | 405            | 19 ticks
+  65     | Z1   | 383          | 408            | 25 ticks
+  66     | Z1   | 385          | 410            | 25 ticks
+  68     | Z2   | 402          | 430            | 28 ticks
+  69     | Z2   | 415          | 441            | 26 ticks
+  71     | Z1   | 439          | 458            | 19 ticks
+  73     | Z1   | 444          | 459            | 15 ticks
+  70     | Z2   | 434          | 460            | 26 ticks
+  72     | Z2   | 443          | 464            | 21 ticks
+  74     | Z2   | 456          | 482            | 26 ticks
+  75     | Z2   | 469          | 495            | 26 ticks
+  77     | Z1   | 489          | 508            | 19 ticks
+  76     | Z2   | 488          | 509            | 21 ticks
+  78     | Z1   | 492          | 511            | 19 ticks
+  79     | Z1   | 510          | 529            | 19 ticks
+  80     | Z1   | 515          | 534            | 19 ticks
+  81     | Z2   | 520          | 541            | 21 ticks
+  82     | Z2   | 521          | 542            | 21 ticks
+  83     | Z1   | 524          | 543            | 19 ticks
+  84     | Z2   | 528          | 549            | 21 ticks
+  85     | Z2   | 536          | 555            | 19 ticks
+  86     | Z1   | 543          | 564            | 21 ticks
+  87     | Z2   | 544          | 570            | 26 ticks
+  88     | Z1   | 551          | 570            | 19 ticks
+  89     | Z1   | 567          | 582            | 15 ticks
+  90     | Z2   | 575          | 596            | 21 ticks
+  91     | Z2   | 580          | 601            | 21 ticks
+  92     | Z1   | 587          | 606            | 19 ticks
+  93     | Z2   | 588          | 611            | 23 ticks
+  94     | Z2   | 591          | 612            | 21 ticks
+  97     | Z1   | 602          | 617            | 15 ticks
+  95     | Z2   | 599          | 625            | 26 ticks
+  99     | Z2   | 610          | 626            | 16 ticks
+  96     | Z1   | 600          | 627            | 27 ticks
+  98     | Z2   | 608          | 629            | 21 ticks
+  100    | Z1   | 617          | 644            | 27 ticks
+
+  ENTRY AREAS
+------------------------------------------------------------
+  A1 (2,18): generated 33, remaining 0
+  A2 (7,18): generated 33, remaining 0
+  A3 (13,18): generated 34, remaining 0
+
+  EXIT AREAS
+------------------------------------------------------------
+  Z1 (2,1): 54 delivered, avg time: 21.06 ticks
+  Z2 (13,1): 46 delivered, avg time: 21.98 ticks
+
+  ENVIRONMENT
+------------------------------------------------------------
+  Grid size        : 15 x 20
+  Fixed obstacles   : 5
+  Human workers     : 3
+  Arrival prob      : 0.15 (split across 3 entries)
+  Arrival dist      : BINOMIAL
+  Simulation time   : 166 ms
+
+============================================================
+CSV,REFERENCE,100,100,0,2148,21.48,644,0.1553,2180,0,0,0

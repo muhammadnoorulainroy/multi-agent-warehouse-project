@@ -1,0 +1,136 @@
+
+============================================================
+          WAREHOUSE AMR SIMULATION
+============================================================
+
+  Mode: REFERENCE
+  Grid: 15 rows x 20 columns
+
+============================================================
+                 COLOR LEGEND (GUI Window)
+============================================================
+
+  +------------------+------------------------------------------+
+  | COLOR            | MEANING                                  |
+  +------------------+------------------------------------------+
+  | LIME GREEN       | Entry Areas (A1, A2, A3) - pallets spawn |
+  | BRIGHT RED       | Exit Areas (Z1, Z2) - destinations       |
+  | BLUE             | AMR Robot (EMPTY - no pallet)            |
+  | MAGENTA/PINK     | AMR Robot CARRYING a pallet              |
+  | YELLOW/ORANGE    | HUMAN worker (moves randomly!)           |
+  | DARK GRAY        | Static Obstacles/Walls                   |
+  | CYAN             | Intermediate Areas (relay stations)      |
+  | PURPLE           | Charging/Recharge Stations               |
+  +------------------+------------------------------------------+
+
+============================================================
+            TEXT MAP SYMBOLS (Console output)
+============================================================
+
+  +--------+------------------------------------------------+
+  | SYMBOL | MEANING                                        |
+  +--------+------------------------------------------------+
+  | A1-A3  | Entry Areas (pallets arrive here)              |
+  | Z1, Z2 | Exit Areas (delivery destinations)             |
+  | R      | Robot (empty/idle)                             |
+  | R*     | Robot CARRYING a pallet                        |
+  | H      | Human worker (dynamic obstacle)                |
+  | X      | Static Obstacle                                |
+  | I      | Intermediate Area (relay station)              |
+  | C      | Charging Station                               |
+  | .      | Empty cell                                     |
+  +--------+------------------------------------------------+
+
+============================================================
+                   WAREHOUSE LAYOUT
+============================================================
+
+       LEFT SIDE           |         RIGHT SIDE
+   ----------------------- | ------------------------
+   Exit Areas (Z1, Z2)     |   Entry Areas (A1-A3)
+   Delivery Destinations   |   Pallets Spawn Here
+
+   Robots move from RIGHT --> to --> LEFT to deliver
+   Humans move RANDOMLY - they are dynamic obstacles!
+
+============================================================
+
+Placed 5 obstacles (spread apart, away from entry/exit)
+Created 3 human workers (dynamic obstacles)
+
+--- WAREHOUSE POSITIONS ---
+Entry Areas (GREEN - pallets spawn here):
+  A1 at position (2, 18)
+  A2 at position (7, 18)
+  A3 at position (13, 18)
+Exit Areas (ORANGE - delivery destinations):
+  Z1 at position (2, 1)
+  Z2 at position (13, 1)
+Obstacles: 5 placed randomly
+
+Starting REFERENCE simulation...
+Total pallets to deliver: 20
+Watch the GUI window for visual simulation!
+
+============================================================
+         SIMULATION RESULTS - REFERENCE MODEL
+============================================================
+
+  DELIVERY METRICS
+------------------------------------------------------------
+  Total pallets generated      : 21
+  Total pallets delivered       : 20
+  Pallets still pending         : 1
+  Total delivery time (td)      : 438 ticks   [td = sum of (tc - ts) for each pallet]
+  Average delivery time         : 21.90 ticks per pallet
+  Makespan                      : 999 ticks
+  Throughput                    : 0.0200 pallets/tick
+  Total distance (all AMRs)     : 450 cells
+
+  PER-PALLET DELIVERY LOG
+------------------------------------------------------------
+  Pallet | Dest | Arrived (ts) | Delivered (tc) | Time (tp = tc - ts)
+  -------+------+--------------+----------------+--------------------
+  3      | Z2   | 19           | 36             | 17 ticks
+  2      | Z2   | 19           | 40             | 21 ticks
+  1      | Z2   | 19           | 45             | 26 ticks
+  5      | Z2   | 39           | 60             | 21 ticks
+  6      | Z1   | 39           | 64             | 25 ticks
+  4      | Z2   | 39           | 65             | 26 ticks
+  7      | Z1   | 59           | 78             | 19 ticks
+  8      | Z1   | 59           | 78             | 19 ticks
+  9      | Z1   | 59           | 84             | 25 ticks
+  12     | Z2   | 79           | 96             | 17 ticks
+  11     | Z2   | 79           | 100            | 21 ticks
+  10     | Z2   | 79           | 107            | 28 ticks
+  14     | Z1   | 99           | 122            | 23 ticks
+  15     | Z1   | 99           | 124            | 25 ticks
+  13     | Z2   | 99           | 127            | 28 ticks
+  16     | Z1   | 119          | 136            | 17 ticks
+  17     | Z2   | 119          | 140            | 21 ticks
+  18     | Z1   | 119          | 144            | 25 ticks
+  19     | Z1   | 139          | 154            | 15 ticks
+  20     | Z1   | 139          | 158            | 19 ticks
+
+  ENTRY AREAS
+------------------------------------------------------------
+  A1 (2,18): generated 7, remaining 0
+  A2 (7,18): generated 7, remaining 0
+  A3 (13,18): generated 7, remaining 1
+
+  EXIT AREAS
+------------------------------------------------------------
+  Z1 (2,1): 10 delivered, avg time: 21.20 ticks
+  Z2 (13,1): 10 delivered, avg time: 22.60 ticks
+
+  ENVIRONMENT
+------------------------------------------------------------
+  Grid size        : 15 x 20
+  Fixed obstacles   : 5
+  Human workers     : 3
+  Arrival prob      : 0.15 (split across 3 entries)
+  Arrival dist      : UNIFORM
+  Simulation time   : 84 ms
+
+============================================================
+CSV,REFERENCE,21,20,1,438,21.90,999,0.0200,450,0,0,0

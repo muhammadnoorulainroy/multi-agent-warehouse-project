@@ -1,0 +1,166 @@
+
+============================================================
+          WAREHOUSE AMR SIMULATION
+============================================================
+
+  Mode: ENHANCED
+  Grid: 15 rows x 20 columns
+
+============================================================
+                 COLOR LEGEND (GUI Window)
+============================================================
+
+  +------------------+------------------------------------------+
+  | COLOR            | MEANING                                  |
+  +------------------+------------------------------------------+
+  | LIME GREEN       | Entry Areas (A1, A2, A3) - pallets spawn |
+  | BRIGHT RED       | Exit Areas (Z1, Z2) - destinations       |
+  | BLUE             | AMR Robot (EMPTY - no pallet)            |
+  | MAGENTA/PINK     | AMR Robot CARRYING a pallet              |
+  | YELLOW/ORANGE    | HUMAN worker (moves randomly!)           |
+  | DARK GRAY        | Static Obstacles/Walls                   |
+  | CYAN             | Intermediate Areas (relay stations)      |
+  | PURPLE           | Charging/Recharge Stations               |
+  +------------------+------------------------------------------+
+
+============================================================
+            TEXT MAP SYMBOLS (Console output)
+============================================================
+
+  +--------+------------------------------------------------+
+  | SYMBOL | MEANING                                        |
+  +--------+------------------------------------------------+
+  | A1-A3  | Entry Areas (pallets arrive here)              |
+  | Z1, Z2 | Exit Areas (delivery destinations)             |
+  | R      | Robot (empty/idle)                             |
+  | R*     | Robot CARRYING a pallet                        |
+  | H      | Human worker (dynamic obstacle)                |
+  | X      | Static Obstacle                                |
+  | I      | Intermediate Area (relay station)              |
+  | C      | Charging Station                               |
+  | .      | Empty cell                                     |
+  +--------+------------------------------------------------+
+
+============================================================
+                   WAREHOUSE LAYOUT
+============================================================
+
+       LEFT SIDE           |         RIGHT SIDE
+   ----------------------- | ------------------------
+   Exit Areas (Z1, Z2)     |   Entry Areas (A1-A3)
+   Delivery Destinations   |   Pallets Spawn Here
+
+   Robots move from RIGHT --> to --> LEFT to deliver
+   Humans move RANDOMLY - they are dynamic obstacles!
+
+============================================================
+
+Placed 5 obstacles (spread apart, away from entry/exit)
+Created 3 human workers (dynamic obstacles)
+
+--- WAREHOUSE POSITIONS ---
+Entry Areas (GREEN - pallets spawn here):
+  A1 at position (2, 18)
+  A2 at position (7, 18)
+  A3 at position (13, 18)
+Exit Areas (ORANGE - delivery destinations):
+  Z1 at position (2, 1)
+  Z2 at position (13, 1)
+Intermediate Areas (CYAN - relay stations):
+  I1 at position (3, 10) capacity=5
+  I2 at position (12, 10) capacity=5
+Recharge Stations (YELLOW):
+  at position (7, 3)
+  at position (7, 16)
+Obstacles: 5 placed randomly
+
+Starting ENHANCED simulation...
+Total pallets to deliver: 20
+Watch the GUI window for visual simulation!
+
+Simulation complete at tick 312
+
+============================================================
+         SIMULATION RESULTS - ENHANCED MODEL
+============================================================
+
+  DELIVERY METRICS
+------------------------------------------------------------
+  Total pallets generated      : 20
+  Total pallets delivered       : 20
+  Pallets still pending         : 0
+  Total delivery time (td)      : 2069 ticks   [td = sum of (tc - ts) for each pallet]
+  Average delivery time         : 103.45 ticks per pallet
+  Makespan                      : 312 ticks
+  Throughput                    : 0.0641 pallets/tick
+  Total distance (all AMRs)     : 1047 cells
+
+  PER-PALLET DELIVERY LOG
+------------------------------------------------------------
+  Pallet | Dest | Arrived (ts) | Delivered (tc) | Time (tp = tc - ts)
+  -------+------+--------------+----------------+--------------------
+  3      | Z1   | 10           | 33             | 23 ticks
+  1      | Z2   | 4            | 52             | 48 ticks
+  4      | Z1   | 17           | 64             | 47 ticks
+  2      | Z2   | 6            | 73             | 67 ticks
+  6      | Z1   | 46           | 77             | 31 ticks
+  5      | Z1   | 42           | 99             | 57 ticks
+  7      | Z1   | 46           | 121            | 75 ticks
+  8      | Z1   | 48           | 130            | 82 ticks
+  9      | Z1   | 48           | 153            | 105 ticks
+  15     | Z2   | 92           | 171            | 79 ticks
+  10     | Z2   | 61           | 175            | 114 ticks
+  12     | Z1   | 75           | 188            | 113 ticks
+  11     | Z2   | 68           | 194            | 126 ticks
+  18     | Z1   | 113          | 221            | 108 ticks
+  16     | Z2   | 101          | 222            | 121 ticks
+  17     | Z2   | 103          | 243            | 140 ticks
+  14     | Z1   | 84           | 260            | 176 ticks
+  13     | Z2   | 76           | 261            | 185 ticks
+  20     | Z1   | 121          | 296            | 175 ticks
+  19     | Z1   | 115          | 312            | 197 ticks
+
+  ENTRY AREAS
+------------------------------------------------------------
+  A1 (2,18): generated 10, remaining 0
+  A2 (7,18): generated 6, remaining 0
+  A3 (13,18): generated 4, remaining 0
+
+  EXIT AREAS
+------------------------------------------------------------
+  Z1 (2,1): 12 delivered, avg time: 99.08 ticks
+  Z2 (13,1): 8 delivered, avg time: 110.00 ticks
+
+  AMR STATISTICS
+------------------------------------------------------------
+  AMR     | Delivered | Distance | Util%  | Battery | Recharges | State
+  --------+-----------+----------+--------+---------+-----------+------
+  AMR0    | 5         | 243      | 83.3 % | 60    % | 3         | IDLE
+  AMR1    | 4         | 205      | 69.7 % | 100   % | 3         | IDLE
+  AMR2    | 3         | 221      | 62.3 % | 60    % | 3         | RECHARGING
+  AMR3    | 4         | 183      | 50.3 % | 55    % | 2         | MOVING_TO_RECHARGE
+  AMR4    | 3         | 195      | 53.0 % | 84    % | 3         | MOVING_TO_RECHARGE
+  Battery deaths: 0
+
+  INTERMEDIATE AREAS
+------------------------------------------------------------
+  I1 (3,10): received=1, picked up=1, remaining=0/5
+  I2 (12,10): received=5, picked up=5, remaining=0/5
+
+  RECHARGE STATIONS
+------------------------------------------------------------
+  Max simultaneous charging: 2 | Currently charging: 1
+  Station at (7,3)
+  Station at (7,16)
+
+  ENVIRONMENT
+------------------------------------------------------------
+  Grid size        : 15 x 20
+  Fixed obstacles   : 5
+  Human workers     : 3
+  Arrival prob      : 0.15 (split across 3 entries)
+  Arrival dist      : BINOMIAL
+  Simulation time   : 113 ms
+
+============================================================
+CSV,ENHANCED,20,20,0,2069,103.45,312,0.0641,1047,0,6,6
