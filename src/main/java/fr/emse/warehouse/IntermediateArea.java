@@ -3,10 +3,6 @@ package fr.emse.warehouse;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Temporary storage area for pallets between AMR handoffs (enhanced model
- * only).
- */
 public class IntermediateArea {
 
     private final String id;
@@ -34,9 +30,6 @@ public class IntermediateArea {
         return !storedPallets.isEmpty();
     }
 
-    /**
-     * Returns false if area is full.
-     */
     public boolean storePallet(Pallet pallet) {
         if (!canAccept()) {
             return false;
@@ -46,9 +39,6 @@ public class IntermediateArea {
         return true;
     }
 
-    /**
-     * FIFO pickup. Returns null if empty.
-     */
     public Pallet pickupPallet() {
         if (storedPallets.isEmpty()) {
             return null;
@@ -69,9 +59,6 @@ public class IntermediateArea {
         return new ArrayList<>(storedPallets);
     }
 
-    /**
-     * Returns "CRITICAL" if full, "HIGH" if >80% full, "NORMAL" otherwise.
-     */
     public String getUrgencyLevel() {
         double fillRatio = (double) storedPallets.size() / capacity;
 

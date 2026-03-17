@@ -5,10 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Central warehouse state: entry/exit/intermediate areas, recharge stations,
- * obstacles, and pallet tracking.
- */
 public class WarehouseEnvironment {
 
     private final int rows;
@@ -34,10 +30,6 @@ public class WarehouseEnvironment {
     private int totalDeliveryTime;
     private int currentTick;
 
-    /**
-     * When false, tick() only advances the clock -- no new pallets are
-     * generated.
-     */
     private boolean generationEnabled = true;
 
     public WarehouseEnvironment(int rows, int columns) {
@@ -92,9 +84,6 @@ public class WarehouseEnvironment {
         robotPositions.remove(robotId);
     }
 
-    /**
-     * Check if a position is occupied by any robot other than excludeRobotId.
-     */
     public boolean isOccupiedByRobot(int[] position, int excludeRobotId) {
         for (Map.Entry<Integer, int[]> entry : robotPositions.entrySet()) {
             if (entry.getKey() != excludeRobotId) {
@@ -120,9 +109,6 @@ public class WarehouseEnvironment {
         return false;
     }
 
-    /**
-     * Try to start charging. Returns true if a slot is available.
-     */
     public boolean tryStartCharging(int robotId) {
         // Already holds a slot -- let it continue
         if (chargingRobotIds.contains(robotId)) {
@@ -156,10 +142,6 @@ public class WarehouseEnvironment {
         return false;
     }
 
-    /**
-     * Process one simulation tick. Generates new pallets at entry areas unless
-     * generation has been disabled (pallet cap reached).
-     */
     public List<Pallet> tick(int tick) {
         this.currentTick = tick;
         List<Pallet> newPallets = new ArrayList<>();
@@ -188,9 +170,6 @@ public class WarehouseEnvironment {
         return generationEnabled;
     }
 
-    /**
-     * Register a pre-loaded pallet into tracking lists.
-     */
     public void registerPallet(Pallet pallet) {
         allPallets.add(pallet);
         pendingPallets.add(pallet);
@@ -222,10 +201,6 @@ public class WarehouseEnvironment {
         return null;
     }
 
-    /**
-     * Deliver a pallet to its destination exit area. Returns delivery time, or
-     * -1 if invalid.
-     */
     public int deliverPallet(Pallet pallet) {
         String destinationId = pallet.getDestination();
         ExitArea exitArea = exitAreaMap.get(destinationId);
@@ -245,10 +220,6 @@ public class WarehouseEnvironment {
         return exitArea != null ? exitArea.getPosition() : null;
     }
 
-    /**
-     * Get the nearest free cell within the 2x2 exit block; falls back to anchor
-     * if all occupied.
-     */
     public int[] getBestExitCell(String exitId, int[] amrPosition) {
         ExitArea exitArea = exitAreaMap.get(exitId);
         if (exitArea == null) {
@@ -291,9 +262,7 @@ public class WarehouseEnvironment {
         return null;
     }
 
-    /**
-     * Entry areas are 2x1 cells (2 rows, 1 column).
-     */
+    // Entry areas: 2 rows × 1 col
     public boolean isEntryArea(int[] position) {
         for (EntryArea entry : entryAreas) {
             int ex = entry.getX();
@@ -305,9 +274,7 @@ public class WarehouseEnvironment {
         return false;
     }
 
-    /**
-     * Exit areas are 2x2 cells.
-     */
+    // Exit/intermediate areas: 2×2 cells
     public boolean isExitArea(int[] position) {
         for (ExitArea exit : exitAreas) {
             int ex = exit.getX();
@@ -320,10 +287,6 @@ public class WarehouseEnvironment {
         return false;
     }
 
-    /**
-     * Check if position is within the correct exit area for the given
-     * destination.
-     */
     public boolean isCorrectExitArea(int[] position, String exitId) {
         ExitArea exit = exitAreaMap.get(exitId);
         if (exit == null) {
@@ -335,9 +298,6 @@ public class WarehouseEnvironment {
                 && position[1] >= ey && position[1] < ey + 2;
     }
 
-    /**
-     * Intermediate areas are 2x2 cells.
-     */
     public boolean isIntermediateArea(int[] position) {
         for (IntermediateArea area : intermediateAreas) {
             int ax = area.getX();
@@ -350,9 +310,7 @@ public class WarehouseEnvironment {
         return false;
     }
 
-    /**
-     * Recharge stations are 2x1 blocks (anchor + 1 row below).
-     */
+    // Recharge stations: 2×1 block (anchor + 1 row below)
     public boolean isRechargeStation(int[] position) {
         for (int[] station : rechargeStations) {
             if (position[1] == station[1]
@@ -367,10 +325,6 @@ public class WarehouseEnvironment {
         return isObstacle(position[0], position[1]);
     }
 
-    /**
-     * Returns true only for explicit obstacle cells;
-     * entry/exit/intermediate/recharge areas are passable.
-     */
     public boolean isObstacle(int x, int y) {
         for (EntryArea entry : entryAreas) {
             int[] pos = entry.getPosition();
@@ -444,10 +398,6 @@ public class WarehouseEnvironment {
         return nearest;
     }
 
-    /**
-     * Get the nearest free cell across all recharge station 2x1 blocks; falls
-     * back to nearest anchor.
-     */
     public int[] getBestRechargeCell(int[] amrPosition, int amrId) {
         if (rechargeStations.isEmpty()) {
             return null;

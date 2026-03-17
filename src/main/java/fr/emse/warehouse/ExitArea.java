@@ -3,9 +3,6 @@ package fr.emse.warehouse;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Exit area (zone Zy) where pallets are delivered. Tracks delivery statistics.
- */
 public class ExitArea {
 
     private final String id;

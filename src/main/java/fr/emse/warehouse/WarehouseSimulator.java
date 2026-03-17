@@ -15,9 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Iterator;
 
-/**
- * Warehouse AMR simulation. Supports REFERENCE (naive baseline) and ENHANCED (decentralized CNP coordination) modes.
- */
 public class WarehouseSimulator extends ColorSimFactory {
 
     public enum SimulationMode {
@@ -54,7 +51,22 @@ public class WarehouseSimulator extends ColorSimFactory {
     private int numExitAreas = 2;
     private int numIntermediateAreas = 2;
 
-    // Layout position overrides (-1 = auto-calculate)
+    // Algorithm configuration
+    private String pathfindingMode = "astar_diagonal";
+    private String allocationMode = "cnp";
+    private String conflictResolution = "priority";
+    private double rechargeThreshold = 0.4;
+    private String relayStrategy = "adaptive";
+    private int roundRobinIndex = 0;
+
+    // Layout position overrides — null = auto-calculate, otherwise explicit [row,col] pairs
+    private List<int[]> entryPositions = null;
+    private List<int[]> exitPositions = null;
+    private List<int[]> intermediatePositions = null;
+    private List<int[]> rechargePositions = null;
+    private List<int[]> obstaclePositions = null;
+
+    // Legacy column-only overrides (used when explicit positions not set)
     private int rechargeCol1 = -1;
     private int rechargeCol2 = -1;
     private int intermediateCol = -1;
@@ -69,6 +81,9 @@ public class WarehouseSimulator extends ColorSimFactory {
     private long startTime;
     private long endTime;
     private int cumulativeDistance;
+    private int totalConflicts;
+    private int totalYields;
+    private int totalRelayDrops;
 
     public WarehouseSimulator(SimProperties sp, SimulationMode mode) {
         super(sp);
@@ -110,6 +125,16 @@ public class WarehouseSimulator extends ColorSimFactory {
     public void setIntermediateCol(int c) { this.intermediateCol = c; }
     public void setSplitProbability(boolean split) { this.splitProbability = split; }
     public void setPreloadPallets(int n) { this.preloadPallets = n; }
+    public void setEntryPositions(List<int[]> pos) { this.entryPositions = pos; }
+    public void setExitPositions(List<int[]> pos) { this.exitPositions = pos; }
+    public void setIntermediatePositions(List<int[]> pos) { this.intermediatePositions = pos; }
+    public void setRechargePositions(List<int[]> pos) { this.rechargePositions = pos; }
+    public void setObstaclePositions(List<int[]> pos) { this.obstaclePositions = pos; }
+    public void setPathfindingMode(String mode) { this.pathfindingMode = mode; }
+    public void setAllocationMode(String mode) { this.allocationMode = mode; }
+    public void setConflictResolution(String mode) { this.conflictResolution = mode; }
+    public void setRechargeThreshold(double t) { this.rechargeThreshold = t; }
+    public void setRelayStrategy(String strategy) { this.relayStrategy = strategy; }
 
     @Override
     public void createEnvironment() {
@@ -118,32 +143,38 @@ public class WarehouseSimulator extends ColorSimFactory {
         setupWarehouseLayout();
     }
 
-    /**
-     * Layout: exits on LEFT, entries on RIGHT, intermediates in CENTER.
-     * Coordinate system: [row, col], row 0 = top, col 0 = left.
-     */
     private void setupWarehouseLayout() {
         String[] exitIds = new String[numExitAreas];
         for (int i = 0; i < numExitAreas; i++) {
             exitIds[i] = "Z" + (i + 1);
         }
 
-        // Exit areas — LEFT side, evenly spaced
+        // Exit areas — explicit positions or LEFT side evenly spaced
         for (int i = 0; i < numExitAreas; i++) {
-            int row = 2 + (int) ((double) i * (sp.rows - 4) / Math.max(1, numExitAreas - 1));
-            if (numExitAreas == 1) row = sp.rows / 2 - 1;
-            int[] pos = {row, 1};
+            int[] pos;
+            if (exitPositions != null && i < exitPositions.size()) {
+                pos = exitPositions.get(i);
+            } else {
+                int row = 2 + (int) ((double) i * (sp.rows - 4) / Math.max(1, numExitAreas - 1));
+                if (numExitAreas == 1) row = sp.rows / 2 - 1;
+                pos = new int[]{row, 1};
+            }
             warehouse.addExitArea(new ExitArea(exitIds[i], pos));
         }
 
-        // Entry areas — RIGHT side, evenly spaced
+        // Entry areas — explicit positions or RIGHT side evenly spaced
         double perEntryProb = splitProbability
             ? palletArrivalProbability / numEntryAreas
             : palletArrivalProbability;
         for (int i = 0; i < numEntryAreas; i++) {
-            int row = 2 + (int) ((double) i * (sp.rows - 4) / Math.max(1, numEntryAreas - 1));
-            if (numEntryAreas == 1) row = sp.rows / 2 - 1;
-            int[] pos = {row, sp.columns - 2};
+            int[] pos;
+            if (entryPositions != null && i < entryPositions.size()) {
+                pos = entryPositions.get(i);
+            } else {
+                int row = 2 + (int) ((double) i * (sp.rows - 4) / Math.max(1, numEntryAreas - 1));
+                if (numEntryAreas == 1) row = sp.rows / 2 - 1;
+                pos = new int[]{row, sp.columns - 2};
+            }
             EntryArea entry = new EntryArea(
                 "A" + (i + 1), pos,
                 perEntryProb,
@@ -156,19 +187,33 @@ public class WarehouseSimulator extends ColorSimFactory {
 
         // Intermediate areas & charging stations — enhanced mode only
         if (mode == SimulationMode.ENHANCED) {
-            int iCol = (intermediateCol > 0) ? intermediateCol : 7;
-            for (int i = 0; i < numIntermediateAreas; i++) {
-                int row = 3 + (int) ((double) i * (sp.rows - 6) / Math.max(1, numIntermediateAreas - 1));
-                if (numIntermediateAreas == 1) row = sp.rows / 2;
-                int[] pos = {row, iCol};
-                warehouse.addIntermediateArea(
-                    new IntermediateArea("I" + (i + 1), pos, intermediateCapacity));
+            if (intermediatePositions != null) {
+                for (int i = 0; i < numIntermediateAreas && i < intermediatePositions.size(); i++) {
+                    int[] pos = intermediatePositions.get(i);
+                    warehouse.addIntermediateArea(
+                        new IntermediateArea("I" + (i + 1), pos, intermediateCapacity));
+                }
+            } else {
+                int iCol = (intermediateCol > 0) ? intermediateCol : 7;
+                for (int i = 0; i < numIntermediateAreas; i++) {
+                    int row = 3 + (int) ((double) i * (sp.rows - 6) / Math.max(1, numIntermediateAreas - 1));
+                    if (numIntermediateAreas == 1) row = sp.rows / 2;
+                    int[] pos = {row, iCol};
+                    warehouse.addIntermediateArea(
+                        new IntermediateArea("I" + (i + 1), pos, intermediateCapacity));
+                }
             }
 
-            int rc1 = (rechargeCol1 > 0) ? rechargeCol1 : 5;
-            int rc2 = (rechargeCol2 > 0) ? rechargeCol2 : 14;
-            warehouse.addRechargeStation(new int[]{sp.rows / 2, rc1});
-            warehouse.addRechargeStation(new int[]{sp.rows / 2, rc2});
+            if (rechargePositions != null) {
+                for (int[] pos : rechargePositions) {
+                    warehouse.addRechargeStation(pos);
+                }
+            } else {
+                int rc1 = (rechargeCol1 > 0) ? rechargeCol1 : 5;
+                int rc2 = (rechargeCol2 > 0) ? rechargeCol2 : 14;
+                warehouse.addRechargeStation(new int[]{sp.rows / 2, rc1});
+                warehouse.addRechargeStation(new int[]{sp.rows / 2, rc2});
+            }
         }
 
         // Pre-load pallets at tick 0 (round-robin across entries)
@@ -187,7 +232,29 @@ public class WarehouseSimulator extends ColorSimFactory {
 
     @Override
     public void createObstacle() {
-        // Smart placement: spread apart, away from entry/exit areas
+        int[] rgb = {
+            this.sp.colorobstacle.getRed(),
+            this.sp.colorobstacle.getGreen(),
+            this.sp.colorobstacle.getBlue()
+        };
+
+        // Explicit obstacle positions from config
+        if (obstaclePositions != null) {
+            for (int[] pos : obstaclePositions) {
+                if (warehouse.isEntryArea(pos) || warehouse.isExitArea(pos)
+                        || warehouse.isIntermediateArea(pos) || warehouse.isRechargeStation(pos)) {
+                    System.out.println("Warning: Skipping obstacle at " + pos[0] + ":" + pos[1] + " (conflicts with area)");
+                    continue;
+                }
+                ColorObstacle obstacle = new ColorObstacle(pos, rgb);
+                addNewComponent(obstacle);
+                warehouse.addObstacle(pos);
+            }
+            System.out.println("Placed " + obstaclePositions.size() + " obstacles (explicit positions)");
+            return;
+        }
+
+        // Auto-placement: spread apart, away from entry/exit areas
         final int MIN_OBSTACLE_SPACING = 3;
         final int ENTRY_BUFFER = 4;
         final int EXIT_BUFFER = 4;
@@ -221,11 +288,6 @@ public class WarehouseSimulator extends ColorSimFactory {
                 }
                 if (tooClose) continue;
 
-                int[] rgb = {
-                    this.sp.colorobstacle.getRed(),
-                    this.sp.colorobstacle.getGreen(),
-                    this.sp.colorobstacle.getBlue()
-                };
                 ColorObstacle obstacle = new ColorObstacle(pos, rgb);
                 addNewComponent(obstacle);
                 warehouse.addObstacle(pos);
@@ -260,6 +322,9 @@ public class WarehouseSimulator extends ColorSimFactory {
                 );
                 amr.setWarehouseEnvironment(warehouse);
                 amr.setCNPWeights(cnpAlpha, cnpBeta, cnpGamma, batterySafetyMargin);
+                amr.setPathfindingMode(pathfindingMode);
+                amr.setRechargeThreshold(rechargeThreshold);
+                amr.setRelayStrategy(relayStrategy);
                 warehouse.updateRobotPosition(amr.getId(), pos);
 
                 amrList.add(amr);
@@ -306,9 +371,6 @@ public class WarehouseSimulator extends ColorSimFactory {
         }
         return null;
     }
-
-    // createAreaMarkers() removed — area visuals are rendered as a background layer
-    // by WarehouseGraphicalWindow directly from WarehouseEnvironment.
 
     private void printWarehouseLayout() {
         System.out.println("\n--- WAREHOUSE POSITIONS ---");
@@ -435,6 +497,7 @@ public class WarehouseSimulator extends ColorSimFactory {
             this.sp.columns
         );
         amr.setWarehouseEnvironment(warehouse);
+        amr.setPathfindingMode("astar");  // Reference model always uses simple A* (no penalties)
         warehouse.updateRobotPosition(amr.getId(), spawnPos);
 
         // Pick a free cell in the 2x2 exit zone to spread AMRs across cells
@@ -481,10 +544,6 @@ public class WarehouseSimulator extends ColorSimFactory {
         return pos[0] >= 0 && pos[0] < sp.rows && pos[1] >= 0 && pos[1] < sp.columns;
     }
 
-    /**
-     * Enhanced model CNP task assignment: broadcast announcements, collect bids, award tasks.
-     * Also handles intermediate pickups (relay) and recharge queue management.
-     */
     private int countAMRsAtOrHeadingToRecharge() {
         int count = 0;
         for (AMRobot amr : amrList) {
@@ -541,7 +600,7 @@ public class WarehouseSimulator extends ColorSimFactory {
             }
         }
 
-        // Phase 2: Entry area pickups (CNP bidding)
+        // Phase 2: Entry area pickups — mode-dependent allocation
         java.util.Set<String> claimedEntries = new java.util.HashSet<>();
         for (AMRobot amr : amrList) {
             if (!amr.isAvailable()) {
@@ -553,6 +612,14 @@ public class WarehouseSimulator extends ColorSimFactory {
         }
 
         List<EntryArea> entriesWithPallets = warehouse.getEntriesWithPallets();
+
+        // Build list of idle AMRs for non-CNP modes
+        List<AMRobot> idleAMRs = new ArrayList<>();
+        for (AMRobot amr : amrList) {
+            if (amr.isAvailable()) {
+                idleAMRs.add(amr);
+            }
+        }
 
         for (EntryArea entry : entriesWithPallets) {
             String key = entry.getPosition()[0] + "," + entry.getPosition()[1];
@@ -566,28 +633,78 @@ public class WarehouseSimulator extends ColorSimFactory {
 
             int congestion = exitCongestion.getOrDefault(nextPallet.getDestination(), 0);
 
-            AMRobot bestBidder = null;
-            double bestScore = -1;
+            AMRobot selectedAMR = null;
+            String allocLabel = allocationMode;
 
-            for (AMRobot amr : amrList) {
-                double score = amr.computeBidScore(entry.getPosition(), exitPos, congestion, tick);
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestBidder = amr;
+            switch (allocationMode) {
+                case "random": {
+                    // Random idle AMR
+                    if (!idleAMRs.isEmpty()) {
+                        java.util.Random rng = new java.util.Random(tick * 31L + entry.getPosition()[0] * 7 + entry.getPosition()[1]);
+                        selectedAMR = idleAMRs.get(rng.nextInt(idleAMRs.size()));
+                    }
+                    break;
+                }
+                case "greedy": {
+                    // Nearest idle AMR by Manhattan distance to entry
+                    int bestDist = Integer.MAX_VALUE;
+                    for (AMRobot amr : idleAMRs) {
+                        int dist = Math.abs(amr.getLocation()[0] - entry.getPosition()[0])
+                                 + Math.abs(amr.getLocation()[1] - entry.getPosition()[1]);
+                        if (dist < bestDist) {
+                            bestDist = dist;
+                            selectedAMR = amr;
+                        }
+                    }
+                    break;
+                }
+                case "round_robin": {
+                    // Rotate through idle AMRs
+                    if (!idleAMRs.isEmpty()) {
+                        roundRobinIndex = roundRobinIndex % idleAMRs.size();
+                        selectedAMR = idleAMRs.get(roundRobinIndex);
+                        roundRobinIndex++;
+                    }
+                    break;
+                }
+                case "least_utilized": {
+                    // AMR with fewest completed deliveries
+                    int minDeliveries = Integer.MAX_VALUE;
+                    for (AMRobot amr : idleAMRs) {
+                        if (amr.getPalletsDelivered() < minDeliveries) {
+                            minDeliveries = amr.getPalletsDelivered();
+                            selectedAMR = amr;
+                        }
+                    }
+                    break;
+                }
+                case "cnp":
+                default: {
+                    // Contract Net Protocol — weighted bidding
+                    double bestScore = -1;
+                    for (AMRobot amr : amrList) {
+                        double score = amr.computeBidScore(entry.getPosition(), exitPos, congestion, tick);
+                        if (score > bestScore) {
+                            bestScore = score;
+                            selectedAMR = amr;
+                        }
+                    }
+                    allocLabel = "CNP(score=" + (selectedAMR != null ? String.format("%.3f", bestScore) : "none") + ")";
+                    break;
                 }
             }
 
-            if (bestBidder != null) {
-                bestBidder.assignPickupTask(entry.getPosition(), nextPallet.getDestination());
+            if (selectedAMR != null) {
+                selectedAMR.assignPickupTask(entry.getPosition(), nextPallet.getDestination());
                 claimedEntries.add(key);
+                idleAMRs.remove(selectedAMR);  // No longer available
 
                 if (this.sp.debug == 1) {
-                    boolean fullDelivery = bestBidder.canCompleteFullDelivery(entry.getPosition(), exitPos);
-                    System.out.println("[CONTRACT NET] " + bestBidder.getName() +
-                        " won bid for " + entry.getId() + " pallet #" + nextPallet.getId() +
+                    boolean fullDelivery = selectedAMR.canCompleteFullDelivery(entry.getPosition(), exitPos);
+                    System.out.println("[ALLOC:" + allocLabel + "] " + selectedAMR.getName() +
+                        " assigned " + entry.getId() + " pallet #" + nextPallet.getId() +
                         " → " + nextPallet.getDestination() +
-                        " (score: " + String.format("%.3f", bestScore) +
-                        ", mode: " + (fullDelivery ? "FULL" : "RELAY") + ")");
+                        " (mode: " + (fullDelivery ? "FULL" : "RELAY") + ")");
                 }
             }
         }
@@ -643,10 +760,6 @@ public class WarehouseSimulator extends ColorSimFactory {
     }
 
 
-    /**
-     * Move all AMRs one step. Enhanced mode uses priority-sorted cooperative movement
-     * with conflict detection (same-target and head-on swap) to prevent deadlocks.
-     */
     private void moveAMRs(int tick) {
         ColorSimpleCell[][] grid = this.environment.getGrid();
 
@@ -662,18 +775,23 @@ public class WarehouseSimulator extends ColorSimFactory {
         List<AMRobot> sortedAMRs = new ArrayList<>(amrList);
         java.util.Set<Integer> mustYield = new java.util.HashSet<>();
 
-        if (mode == SimulationMode.ENHANCED) {
-            sortedAMRs.sort((a, b) -> {
-                int diff = b.getMovementPriority() - a.getMovementPriority();
-                return diff != 0 ? diff : a.getId() - b.getId();
-            });
+        if (mode == SimulationMode.ENHANCED && !conflictResolution.equals("none")) {
+            // Sort by priority for "priority" mode; random shuffle for "random" mode
+            if (conflictResolution.equals("priority")) {
+                sortedAMRs.sort((a, b) -> {
+                    int diff = b.getMovementPriority() - a.getMovementPriority();
+                    return diff != 0 ? diff : a.getId() - b.getId();
+                });
+            } else if (conflictResolution.equals("random")) {
+                java.util.Collections.shuffle(sortedAMRs, new java.util.Random(tick));
+            }
 
             java.util.Map<Integer, int[]> intents = new java.util.HashMap<>();
             for (AMRobot amr : sortedAMRs) {
                 intents.put(amr.getId(), amr.getIntendedNextPosition());
             }
 
-            // Same-target conflicts
+            // Same-target conflicts — first in sorted order wins
             java.util.Map<String, Integer> firstClaim = new java.util.HashMap<>();
             for (AMRobot amr : sortedAMRs) {
                 int[] intent = intents.get(amr.getId());
@@ -683,12 +801,13 @@ public class WarehouseSimulator extends ColorSimFactory {
                 String key = intent[0] + "," + intent[1];
                 if (firstClaim.containsKey(key)) {
                     mustYield.add(amr.getId());
+                    totalConflicts++;
                 } else {
                     firstClaim.put(key, amr.getId());
                 }
             }
 
-            // Head-on swap conflicts
+            // Head-on swap conflicts — second in sorted order yields
             for (int i = 0; i < sortedAMRs.size(); i++) {
                 AMRobot a = sortedAMRs.get(i);
                 if (mustYield.contains(a.getId())) continue;
@@ -706,12 +825,19 @@ public class WarehouseSimulator extends ColorSimFactory {
                     if (intentA[0] == posB[0] && intentA[1] == posB[1] &&
                         intentB[0] == posA[0] && intentB[1] == posA[1]) {
                         mustYield.add(b.getId());
+                        totalConflicts++;
                     }
                 }
             }
 
+            totalYields += mustYield.size();
             for (AMRobot amr : sortedAMRs) {
                 amr.setMustYield(mustYield.contains(amr.getId()));
+            }
+        } else if (mode == SimulationMode.ENHANCED) {
+            // "none" mode: no conflict detection, no yielding
+            for (AMRobot amr : sortedAMRs) {
+                amr.setMustYield(false);
             }
         }
 
@@ -733,9 +859,6 @@ public class WarehouseSimulator extends ColorSimFactory {
         }
     }
 
-    /**
-     * Sync AMR logical position to framework grid. Reverts on moveComponent() silent failure.
-     */
     private void syncAMRToGrid(AMRobot amr, int[] gridPos, ColorSimpleCell[][] grid) {
         int[] newPos = amr.getLocation();
         if (gridPos != null &&
@@ -749,10 +872,6 @@ public class WarehouseSimulator extends ColorSimFactory {
         }
     }
 
-    /**
-     * Move humans and sync to grid. Same desync fix as moveAMRs: verify moveComponent
-     * succeeded, revert on failure to keep position tracker accurate.
-     */
     private void moveHumans() {
         ColorSimpleCell[][] grid = this.environment.getGrid();
 
@@ -802,10 +921,6 @@ public class WarehouseSimulator extends ColorSimFactory {
         }
     }
 
-    /**
-     * Check deliveries and state transitions.
-     * Reference: deliver at exit then vanish. Enhanced: also handles relay drops, recharge, dead-AMR recovery.
-     */
     private void checkDeliveries(int tick) {
         for (AMRobot amr : amrList) {
 
@@ -919,6 +1034,7 @@ public class WarehouseSimulator extends ColorSimFactory {
             Pallet dropped = amr.dropPalletAtIntermediate();
             if (dropped != null) {
                 targetArea.storePallet(dropped);
+                totalRelayDrops++;
                 if (this.sp.debug == 1) {
                     System.out.println(amr.getName() + " dropped pallet #" + dropped.getId() +
                         " at " + targetArea.getId() + " for relay (battery: " +
@@ -940,10 +1056,6 @@ public class WarehouseSimulator extends ColorSimFactory {
         }
     }
 
-    /**
-     * Handle pickup at entry or intermediate area. If battery is insufficient for full
-     * delivery, routes to nearest intermediate area for relay instead.
-     */
     private void handlePickup(AMRobot amr) {
         Pallet pallet = warehouse.pickupPalletAtPosition(amr.getLocation());
 
@@ -1303,10 +1415,11 @@ public class WarehouseSimulator extends ColorSimFactory {
         for (AMRobot amr : amrList) {
             if (amr.isDead()) batteryDeaths++;
         }
-        System.out.printf("CSV,%s,%d,%d,%d,%d,%.2f,%d,%.4f,%d,%d,%d,%d%n",
+        System.out.printf("CSV,%s,%d,%d,%d,%d,%.2f,%d,%.4f,%d,%d,%d,%d,%d,%d,%d%n",
             mode, totalPallets, delivered, pending, totalDeliveryTd,
             avgDelivery, makespan, throughput, totalDistance,
-            batteryDeaths, intermediateReceived, intermediatePickedUp);
+            batteryDeaths, intermediateReceived, intermediatePickedUp,
+            totalConflicts, totalYields, totalRelayDrops);
     }
 
     public WarehouseEnvironment getWarehouse() { return warehouse; }
@@ -1332,6 +1445,22 @@ public class WarehouseSimulator extends ColorSimFactory {
             customWindow.setAMRList(amrList);
             customWindow.refresh();
         }
+    }
+
+    // Format: "row:col,row:col,..." — returns null if empty
+    private static List<int[]> parsePositions(String value) {
+        if (value == null || value.trim().isEmpty()) return null;
+        List<int[]> positions = new ArrayList<>();
+        for (String pair : value.trim().split(",")) {
+            String[] parts = pair.trim().split(":");
+            if (parts.length == 2) {
+                positions.add(new int[]{
+                    Integer.parseInt(parts[0].trim()),
+                    Integer.parseInt(parts[1].trim())
+                });
+            }
+        }
+        return positions.isEmpty() ? null : positions;
     }
 
     private static void printStartupBanner(SimulationMode mode, SimProperties sp) {
@@ -1420,6 +1549,32 @@ public class WarehouseSimulator extends ColorSimFactory {
             }
         } catch (Exception e) { /* use default */ }
 
+        // Algorithm configuration (new experiment modes)
+        String pathfindingMode = "astar_penalties";
+        String allocationMode = "cnp";
+        String conflictResolutionMode = "priority";
+        double rechargeThreshold = 0.4;
+        String relayStrategy = "adaptive";
+        try { String v = ifile.getStringValue("warehouse", "pathfinding_mode");    if (v != null && !v.trim().isEmpty()) pathfindingMode = v.trim(); }        catch (Exception e) { /* use default */ }
+        try { String v = ifile.getStringValue("warehouse", "allocation_mode");     if (v != null && !v.trim().isEmpty()) allocationMode = v.trim(); }         catch (Exception e) { /* use default */ }
+        try { String v = ifile.getStringValue("warehouse", "conflict_resolution"); if (v != null && !v.trim().isEmpty()) conflictResolutionMode = v.trim(); } catch (Exception e) { /* use default */ }
+        try { String v = ifile.getStringValue("warehouse", "recharge_threshold"); if (v != null && !v.trim().isEmpty()) rechargeThreshold = Double.parseDouble(v.trim()); } catch (Exception e) { /* use default */ }
+        try { String v = ifile.getStringValue("warehouse", "relay_strategy");      if (v != null && !v.trim().isEmpty()) relayStrategy = v.trim(); }          catch (Exception e) { /* use default */ }
+
+        List<int[]> entryPositions = null, exitPositions = null;
+        List<int[]> intermediatePositionsList = null, rechargePositionsList = null;
+        List<int[]> obstaclePositionsList = null;
+        try { entryPositions          = parsePositions(ifile.getStringValue("warehouse", "entry_positions")); }        catch (Exception e) { /* use default */ }
+        try { exitPositions           = parsePositions(ifile.getStringValue("warehouse", "exit_positions")); }         catch (Exception e) { /* use default */ }
+        try { intermediatePositionsList = parsePositions(ifile.getStringValue("warehouse", "intermediate_positions")); } catch (Exception e) { /* use default */ }
+        try { rechargePositionsList   = parsePositions(ifile.getStringValue("warehouse", "recharge_positions")); }     catch (Exception e) { /* use default */ }
+        try { obstaclePositionsList   = parsePositions(ifile.getStringValue("warehouse", "obstacle_positions")); }     catch (Exception e) { /* use default */ }
+
+        // When explicit positions are provided, derive count from the list
+        if (entryPositions != null) numEntryAreas = entryPositions.size();
+        if (exitPositions != null) numExitAreas = exitPositions.size();
+        if (intermediatePositionsList != null) numIntermediateAreas = intermediatePositionsList.size();
+
         sp.nbobstacle = numObstacles;
 
         simulator.setTotalPallets(totalPallets);
@@ -1433,6 +1588,19 @@ public class WarehouseSimulator extends ColorSimFactory {
         simulator.setIntermediateCapacity(intermediateCapacity);
         simulator.setSplitProbability(splitProbability);
         simulator.setPreloadPallets(preloadPallets);
+
+        simulator.setEntryPositions(entryPositions);
+        simulator.setExitPositions(exitPositions);
+        simulator.setIntermediatePositions(intermediatePositionsList);
+        simulator.setRechargePositions(rechargePositionsList);
+        simulator.setObstaclePositions(obstaclePositionsList);
+
+        // Algorithm modes (apply to both reference and enhanced for pathfinding)
+        simulator.setPathfindingMode(pathfindingMode);
+        simulator.setAllocationMode(allocationMode);
+        simulator.setConflictResolution(conflictResolutionMode);
+        simulator.setRechargeThreshold(rechargeThreshold);
+        simulator.setRelayStrategy(relayStrategy);
 
         if (mode == SimulationMode.ENHANCED) {
             simulator.setNumAMRs(numAMRs);

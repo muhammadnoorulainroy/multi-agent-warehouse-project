@@ -6,9 +6,6 @@ import java.util.Random;
 import fr.emse.fayol.maqit.simulator.components.ColorRobot;
 import fr.emse.fayol.maqit.simulator.environment.ColorSimpleCell;
 
-/**
- * Human worker that moves randomly, acting as a dynamic obstacle for AMRs.
- */
 public class Human extends ColorRobot<ColorSimpleCell> {
 
     private final int rows;
@@ -114,10 +111,6 @@ public class Human extends ColorRobot<ColorSimpleCell> {
         return getLocation();
     }
 
-    /**
-     * Sync logical position to actual grid position. Prevents divergence when
-     * moveComponent() fails.
-     */
     public void syncToGridPosition(int[] gridPosition) {
         setLocation(gridPosition);
     }

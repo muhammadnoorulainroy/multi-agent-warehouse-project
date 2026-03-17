@@ -8,11 +8,6 @@ import fr.emse.fayol.maqit.simulator.components.ColorInteractionRobot;
 import fr.emse.fayol.maqit.simulator.components.Message;
 import fr.emse.fayol.maqit.simulator.environment.ColorSimpleCell;
 
-/**
- * AMR for warehouse pallet transport. Reference model: 1 AMR per pallet, no
- * battery, vanishes after delivery. Enhanced model: reusable AMRs with Contract
- * Net coordination, battery management, and intermediate relay.
- */
 public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
 
     public static final Color COLOR_IDLE = new Color(0, 150, 255);
@@ -71,6 +66,11 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
     private int totalStuckTicks;
     private java.util.Random random;
 
+    // Algorithm configuration (enhanced model)
+    private String pathfindingMode = "astar_diagonal";  // bfs, dijkstra, astar, astar_penalties, astar_diagonal
+    private String relayStrategy = "adaptive";           // never, always, adaptive
+    private double rechargeThreshold = 0.4;              // fraction of maxBattery
+
     // Cooperative movement (enhanced model)
     private boolean mustYieldThisTick = false;
     private java.util.Deque<String> positionHistory = new java.util.ArrayDeque<>();
@@ -81,9 +81,6 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
     private static final int PERPENDICULAR_ESCAPE_TICKS = 4;
     private static final int RANDOM_ESCAPE_TICKS = 8;
 
-    /**
-     * Reference model constructor (no battery, no communication).
-     */
     public AMRobot(String name, int field, int[] pos, Color color, int rows, int columns) {
         super(name, field, pos, new int[]{color.getRed(), color.getGreen(), color.getBlue()});
         this.rows = rows;
@@ -94,9 +91,6 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         this.maxBattery = -1;
     }
 
-    /**
-     * Enhanced model constructor (with battery and communication).
-     */
     public AMRobot(String name, int field, int[] pos, Color color, int rows, int columns,
             int maxBattery, int rechargeRate) {
         super(name, field, pos, new int[]{color.getRed(), color.getGreen(), color.getBlue()});
@@ -137,14 +131,22 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         this.batterySafetyMargin = safetyMargin;
     }
 
+    public void setPathfindingMode(String mode) {
+        this.pathfindingMode = mode;
+    }
+
+    public void setRelayStrategy(String strategy) {
+        this.relayStrategy = strategy;
+    }
+
+    public void setRechargeThreshold(double threshold) {
+        this.rechargeThreshold = threshold;
+    }
+
     public void recordDelivery(int tick) {
         this.lastDeliveryTick = tick;
     }
 
-    /**
-     * Compute CNP bid score for picking up a pallet. Higher = better candidate.
-     * Returns -1 if cannot bid.
-     */
     public double computeBidScore(int[] pickupPos, int[] exitPos,
             int congestionAtExit, int currentTick) {
         if (!enhancedMode) {
@@ -171,9 +173,22 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         int totalCost = estimatedTrip + (int) (PATH_DETOUR_FACTOR * distToRecharge);
         int required = (int) (totalCost * batterySafetyMargin);
 
-        if (battery < required) {
+        boolean canFullDeliver = battery >= required;
+
+        // "always" relay: force relay even if full delivery is possible
+        if (relayStrategy.equals("always") && warehouseEnv != null) {
+            IntermediateArea nearest = warehouseEnv.getNearestIntermediateArea(pickupPos);
+            if (nearest != null && nearest.canAccept()) {
+                double proximityScore = 1.0 / (1.0 + distToPickup);
+                double batteryScore = (double) battery / maxBattery;
+                return (proximityScore * cnpAlpha + batteryScore * cnpBeta) * 0.5;
+            }
+            // No intermediate available, fall through to full delivery if possible
+        }
+
+        if (!canFullDeliver) {
             // Not enough for full delivery -- check if relay to intermediate is feasible
-            if (warehouseEnv != null) {
+            if (!relayStrategy.equals("never") && warehouseEnv != null) {
                 IntermediateArea nearest = warehouseEnv.getNearestIntermediateArea(pickupPos);
                 if (nearest != null && nearest.canAccept()) {
                     int distToIntermediate = manhattanDist(pickupPos, nearest.getPosition());
@@ -188,12 +203,10 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
                     double batteryScore = (double) battery / maxBattery;
                     return (proximityScore * cnpAlpha + batteryScore * cnpBeta) * 0.5;
                 }
-                return -1;
             }
             return -1;
         }
 
-        // Full delivery possible
         double proximityScore = 1.0 / (1.0 + distToPickup);
         double batteryScore = (double) battery / maxBattery;
         double congestionScore = 1.0 / (1.0 + congestionAtExit);
@@ -203,13 +216,19 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
                 + congestionScore * cnpGamma - loadPenalty;
     }
 
-    /**
-     * Check if battery suffices for full delivery (pickup -> exit -> recharge).
-     */
     public boolean canCompleteFullDelivery(int[] pickupPos, int[] exitPos) {
         if (!enhancedMode) {
             return true;
         }
+        // "never" relay: always attempt full delivery (ignore battery feasibility for relay decision)
+        if (relayStrategy.equals("never")) {
+            return true;
+        }
+        // "always" relay: never do full delivery, always relay
+        if (relayStrategy.equals("always")) {
+            return false;
+        }
+        // "adaptive": check battery feasibility
         int[] myPos = getLocation();
         int totalTrip = manhattanDist(myPos, pickupPos) + manhattanDist(pickupPos, exitPos);
         int[] nearestRecharge = (warehouseEnv != null)
@@ -264,10 +283,6 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         }
     }
 
-    /**
-     * Move one step along path. Reference: simple wait + repath. Enhanced:
-     * escalating escape (wait -> repath -> perpendicular -> random).
-     */
     private void moveAlongPath() {
         if (mustYieldThisTick) {
             mustYieldThisTick = false;
@@ -412,9 +427,6 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         return false;
     }
 
-    /**
-     * Next cell this AMR intends to move to (for pre-move conflict detection).
-     */
     public int[] getIntendedNextPosition() {
         if (state != State.MOVING_TO_PICKUP && state != State.DELIVERING
                 && state != State.MOVING_TO_INTERMEDIATE && state != State.MOVING_TO_RECHARGE) {
@@ -426,10 +438,6 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         return currentPath.get(pathIndex);
     }
 
-    /**
-     * Priority for conflict resolution. Higher = moves first; lower-priority
-     * AMRs yield.
-     */
     public int getMovementPriority() {
         switch (state) {
             case DELIVERING:
@@ -449,9 +457,6 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         this.mustYieldThisTick = yield;
     }
 
-    /**
-     * Detect A-B-A-B oscillation pattern in recent position history.
-     */
     private boolean isOscillating() {
         if (positionHistory.size() < 4) {
             return false;
@@ -470,10 +475,6 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         }
     }
 
-    /**
-     * Sidestep perpendicular to path direction. ID-based direction ensures two
-     * colliding AMRs dodge opposite ways.
-     */
     public boolean yieldSidestep() {
         int[] currentPos = getLocation();
         int[] nextPos = (currentPath != null && pathIndex < currentPath.size())
@@ -610,9 +611,6 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         calculatePath(deliveryPosition);
     }
 
-    /**
-     * Assign relay delivery: carry pallet to intermediate area instead of exit.
-     */
     public void pickupPalletForRelay(Pallet pallet, int[] intermediatePosition) {
         this.carriedPallet = pallet;
         this.targetPosition = intermediatePosition.clone();
@@ -635,9 +633,6 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         return delivered;
     }
 
-    /**
-     * Drop pallet at intermediate area (relay or emergency).
-     */
     public Pallet dropPalletAtIntermediate() {
         Pallet dropped = this.carriedPallet;
         this.carriedPallet = null;
@@ -679,6 +674,18 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
     }
 
     private List<int[]> findPathAStar(int[] start, int[] goal) {
+        // Determine behavior based on pathfinding mode:
+        // bfs:             no heuristic, no penalties, 4-directional
+        // dijkstra:        no heuristic, WITH penalties, 4-directional
+        // astar:           heuristic, no penalties, 4-directional
+        // astar_penalties:  heuristic + penalties, 4-directional (default)
+        // astar_diagonal:  heuristic + penalties, 8-directional
+        boolean useHeuristic = !pathfindingMode.equals("bfs") && !pathfindingMode.equals("dijkstra");
+        boolean usePenalties = pathfindingMode.equals("dijkstra")
+                || pathfindingMode.equals("astar_penalties")
+                || pathfindingMode.equals("astar_diagonal");
+        boolean useDiagonal = pathfindingMode.equals("astar_diagonal");
+
         java.util.PriorityQueue<PathNode> openSet = new java.util.PriorityQueue<>(
                 (a, b) -> Double.compare(a.fScore, b.fScore)
         );
@@ -687,9 +694,13 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
 
         PathNode startNode = new PathNode(start[0], start[1], null);
         startNode.gScore = 0;
-        startNode.fScore = heuristic(start, goal);
+        startNode.fScore = useHeuristic ? computeHeuristic(start, goal, useDiagonal) : 0;
         openSet.add(startNode);
         nodeMap.put(posKey(start[0], start[1]), startNode);
+
+        int[][] directions = useDiagonal
+                ? new int[][]{{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {-1, -1}, {-1, 1}, {1, -1}, {1, 1}}
+                : new int[][]{{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
 
         while (!openSet.isEmpty()) {
             PathNode current = openSet.poll();
@@ -704,7 +715,6 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
             }
             closedSet.add(currentKey);
 
-            int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
             for (int[] dir : directions) {
                 int nx = current.x + dir[0];
                 int ny = current.y + dir[1];
@@ -715,15 +725,25 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
                 if (warehouseEnv != null && warehouseEnv.isObstacle(nx, ny)) {
                     continue;
                 }
+                // For diagonal moves, check that both adjacent cardinal cells are passable
+                if (useDiagonal && dir[0] != 0 && dir[1] != 0) {
+                    if (warehouseEnv != null &&
+                            (warehouseEnv.isObstacle(current.x + dir[0], current.y)
+                            || warehouseEnv.isObstacle(current.x, current.y + dir[1]))) {
+                        continue;
+                    }
+                }
 
                 String neighborKey = posKey(nx, ny);
                 if (closedSet.contains(neighborKey)) {
                     continue;
                 }
 
-                // Penalize occupied cells so A* routes around other agents
-                double moveCost = 1.0;
-                if (warehouseEnv != null) {
+                // Base move cost: sqrt(2) for diagonal, 1.0 for cardinal
+                double moveCost = (dir[0] != 0 && dir[1] != 0) ? 1.414 : 1.0;
+
+                // Dynamic penalties for occupied cells
+                if (usePenalties && warehouseEnv != null) {
                     int[] checkPos = new int[]{nx, ny};
                     if (warehouseEnv.isOccupiedByRobot(checkPos, getId())) {
                         moveCost += 5.0;
@@ -734,17 +754,19 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
                 }
                 double tentativeG = current.gScore + moveCost;
 
+                double h = useHeuristic ? computeHeuristic(new int[]{nx, ny}, goal, useDiagonal) : 0;
+
                 PathNode neighbor = nodeMap.get(neighborKey);
                 if (neighbor == null) {
                     neighbor = new PathNode(nx, ny, current);
                     neighbor.gScore = tentativeG;
-                    neighbor.fScore = tentativeG + heuristic(new int[]{nx, ny}, goal);
+                    neighbor.fScore = tentativeG + h;
                     nodeMap.put(neighborKey, neighbor);
                     openSet.add(neighbor);
                 } else if (tentativeG < neighbor.gScore) {
                     neighbor.parent = current;
                     neighbor.gScore = tentativeG;
-                    neighbor.fScore = tentativeG + heuristic(new int[]{nx, ny}, goal);
+                    neighbor.fScore = tentativeG + h;
                     openSet.remove(neighbor);
                     openSet.add(neighbor);
                 }
@@ -772,8 +794,14 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         return x + "," + y;
     }
 
-    private double heuristic(int[] a, int[] b) {
-        return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+    private double computeHeuristic(int[] a, int[] b, boolean diagonal) {
+        if (diagonal) {
+            // Octile distance: allows diagonal moves at cost sqrt(2)
+            int dx = Math.abs(a[0] - b[0]);
+            int dy = Math.abs(a[1] - b[1]);
+            return Math.max(dx, dy) + (1.414 - 1.0) * Math.min(dx, dy);
+        }
+        return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);  // Manhattan
     }
 
     private List<int[]> reconstructPath(PathNode node) {
@@ -786,15 +814,7 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         return path;
     }
 
-    /**
-     * Check if a cell is free (no obstacle, no other AMR, no human). Uses
-     * WarehouseEnvironment position tracker as single source of truth. NOTE: We
-     * deliberately skip the framework's perception grid because ColorSimpleCell
-     * has a field-shadowing bug -- removeCellContent() clears parent
-     * SimpleCell.content, but getContent() reads the shadowed
-     * ColorSimpleCell.content, causing vacated cells to appear permanently
-     * occupied.
-     */
+    // Uses WarehouseEnvironment tracker; skips framework grid (ColorSimpleCell field-shadowing bug).
     private boolean isCellFree(int[] pos) {
         if (warehouseEnv != null && warehouseEnv.isObstacle(pos[0], pos[1])) {
             return false;
@@ -817,8 +837,6 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         if (content == null) {
             return;
         }
-        // Messages are processed by the simulator's CNP mediator, not individually.
-        // This handler is reserved for future direct AMR-to-AMR communication.
     }
 
     public void broadcastStatus() {
@@ -843,14 +861,14 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         if (!enhancedMode) {
             return false;
         }
-        return battery < maxBattery * 0.4;
+        return battery < maxBattery * rechargeThreshold;
     }
 
     public boolean isBatteryCritical() {
         if (!enhancedMode) {
             return false;
         }
-        return battery < maxBattery * 0.2;
+        return battery < maxBattery * (rechargeThreshold / 2.0);
     }
 
     public State getState() {
@@ -936,10 +954,6 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         return state == State.DEAD;
     }
 
-    /**
-     * Sync logical position to grid position. Called by simulator at tick start
-     * to correct desync from moveComponent() silently failing.
-     */
     public void syncToGridPosition(int[] gridPosition) {
         int[] current = getLocation();
         if (current[0] != gridPosition[0] || current[1] != gridPosition[1]) {
@@ -947,10 +961,6 @@ public class AMRobot extends ColorInteractionRobot<ColorSimpleCell> {
         }
     }
 
-    /**
-     * Revert last move because moveComponent() failed on the grid. Undoes
-     * setLocation, pathIndex, distance, and any premature state transitions.
-     */
     public void revertLastMove(int[] gridPosition) {
         setLocation(gridPosition);
         if (pathIndex > 0) {

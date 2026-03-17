@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-// Custom warehouse window with icon-based rendering for AMRs, humans, areas, and obstacles.
 public class WarehouseGraphicalWindow extends JFrame {
 
     private ColorSimpleCell[][] grid;
@@ -271,7 +270,6 @@ public class WarehouseGraphicalWindow extends JFrame {
         return img;
     }
 
-    // Battery outline filled green with a yellow lightning bolt.
     private BufferedImage createRechargeIcon(int size) {
         BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = img.createGraphics();
@@ -346,13 +344,6 @@ public class WarehouseGraphicalWindow extends JFrame {
         return img;
     }
 
-    /**
-     * Layer 1: floor + fixed areas (from env, stable)
-     * Layer 2: grid lines
-     * Layer 3: moving agents from live grid
-     * Layer 4: overlays (battery %, pallet counts)
-     * Layer 5: status HUD
-     */
     private void renderWarehouse(Graphics2D g) {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
@@ -428,7 +419,6 @@ public class WarehouseGraphicalWindow extends JFrame {
                     int iconY = py + (cellHeight - icon.getHeight()) / 2;
                     g.drawImage(icon, iconX, iconY, null);
                 }
-                // Unknown colors on grid are real obstacles (area markers aren't placed on grid)
                 else if (color != null) {
                     if (isColorMatch(color, COLOR_OBSTACLE, 40)) {
                         BufferedImage icon = iconCache.get("obstacle");
@@ -450,7 +440,6 @@ public class WarehouseGraphicalWindow extends JFrame {
         renderStatusHUD(g);
     }
 
-    // Fill a multi-cell area with a flat background and subtle border.
     private void drawAreaCells(Graphics2D g, int row, int col,
                                 int heightCells, int widthCells, Color bg) {
         int totalRows = grid.length;
@@ -475,7 +464,6 @@ public class WarehouseGraphicalWindow extends JFrame {
         g.setStroke(new BasicStroke(1));
     }
 
-    // Draw a cached icon centred inside a multi-cell area.
     private void drawIconInArea(Graphics2D g, String iconKey,
                                  int row, int col, int heightCells, int widthCells) {
         BufferedImage icon = iconCache.get(iconKey);
@@ -646,7 +634,6 @@ public class WarehouseGraphicalWindow extends JFrame {
         }
     }
 
-    // Identify moving agents (robots/humans) by their color signature.
     private String identifyAgent(int[] color) {
         if (color == null) return null;
 

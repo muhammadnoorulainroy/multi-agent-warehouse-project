@@ -4,9 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-/**
- * Entry area (zone Ax) where pallets arrive with a configurable arrival distribution.
- */
 public class EntryArea {
 
     public enum ArrivalDistribution {
@@ -49,14 +46,12 @@ public class EntryArea {
             : Integer.MAX_VALUE;
     }
 
-    /** Backwards-compatible constructor defaulting to BINOMIAL. */
     public EntryArea(String id, int[] position, double arrivalProbability,
                      String[] possibleDestinations, long seed) {
         this(id, position, arrivalProbability, possibleDestinations, seed,
              ArrivalDistribution.BINOMIAL);
     }
 
-    /** Process one tick; returns a newly generated pallet or null. */
     public Pallet tick(int currentTick) {
         ticksSinceLastArrival++;
 
@@ -102,7 +97,6 @@ public class EntryArea {
         totalPalletsGenerated++;
     }
 
-    /** Remove and return the first pallet (FIFO). */
     public Pallet pickupPallet() {
         if (palletQueue.isEmpty()) {
             return null;

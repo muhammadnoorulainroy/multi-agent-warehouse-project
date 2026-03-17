@@ -1,8 +1,5 @@
 package fr.emse.warehouse;
 
-/**
- * A pallet to be transported from an entry area to an exit area.
- */
 public class Pallet {
 
     private static int NEXT_ID = 1;
@@ -55,9 +52,6 @@ public class Pallet {
         return deliveryTick;
     }
 
-    /**
-     * Returns -1 if not yet delivered.
-     */
     public int getDeliveryTime() {
         if (!delivered) {
             return -1;
@@ -86,9 +80,6 @@ public class Pallet {
         this.deliveryTick = deliveryTick;
     }
 
-    /**
-     * Reset the ID counter (for running multiple simulations).
-     */
     public static void resetIdCounter() {
         NEXT_ID = 1;
     }
