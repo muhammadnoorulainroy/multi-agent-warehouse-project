@@ -34,12 +34,9 @@ multi-agent-simulator/
 │       └── WarehouseGraphicalWindow.java
 ├── lib/                           # MAQIT framework JAR
 ├── configs/                       # Experiment configuration files
-│   ├── experiments/               # Phase experiments P0–P10
-│   └── experiments_v2/            # Extended phase experiments
+│   └── experiments_v2/            # Phase experiments P0–P10
 ├── results/                       # Simulation output (CSV + TXT logs)
-│   ├── experiments/
 │   ├── experiments_v2/
-│   ├── experiment_graphs/
 │   └── experiment_graphs_v2/
 ├── analyze_results.py             # Print statistics from CSV results
 ├── generate_experiment_graphs_v2.py  # Generate experiment PNG graphs
@@ -85,7 +82,7 @@ Pass a path to any `.ini` config file:
 
 ```bash
 ./gradlew enhanced -Pconfig=configs/experiments_v2/P2_pathfinding_astar.ini
-./gradlew reference -Pconfig=configs/experiments/P0_baseline_reference.ini
+./gradlew reference -Pconfig=configs/experiments_v2/P0_baseline.ini
 ```
 
 ### Basic simulator (example)
